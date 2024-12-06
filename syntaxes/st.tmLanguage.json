@@ -1,0 +1,110 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "ST",
+    "patterns": [
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#comment"
+        },
+        {
+            "include": "#punctuation"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#data_types"
+        },
+        {
+            "include": "#numeric_and_boolean_literals"
+        },
+        {
+            "include": "#function_names"
+        },
+        {
+            "include": "#type_names"
+        },
+        {
+            "include": "#variable_names"
+        }
+    ],
+    "repository": {
+        "operators": {
+            "name": "keyword.operator.st",
+            "match": "\\b(\\+|\\-|\\*|\\/|\\%|\\=|\\!=|\\:=|\\<\\=|\\>\\=|\\<|\\>|\\&|\\||\\^|\\~|\\&&|\\|\\|)\\b"
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.st",
+                    "match": "\\b(IF|THEN|ELSE|END_IF|WHILE|END_WHILE|FOR|NEXT|CASE|END_CASE|RETURN|EXIT|VAR|CONST|PROGRAM|FUNCTION|FUNCTION_BLOCK|VAR_INPUT|VAR_OUTPUT|VAR_IN_OUT|RETAIN|NON_RETAIN|AT|PRIOR|THIS|SELF|NOT|MOD|SHL|SHR|AND|OR|XOR|NULL|ANY|ALL|NONE|EXISTS|FOR|TO|BY|DO|UNTIL|REPEAT|LOOP|EXIT|RETURN|CASE|OF|ELSE|END_CASE|WITH|SELECT|END_SELECT|TRY|EXCEPT|FINALLY|END_TRY|RAISE|TRY_EXCEPT|TRY_FINALLY|TRY_EXCEPT_FINALLY|TRY_RAISE|TRY_EXCEPT_RAISE|TRY_FINALLY_RAISE|TRY_EXCEPT_FINALLY_RAISE)\\b"
+                }
+            ]
+        },
+        "data_types": {
+            "name": "storage.type.st",
+            "match": "\\b(INT|DINT|REAL|LREAL|BOOL|BYTE|WORD|DWORD|SINT|USINT|UINT|UDINT|ULINT|STRUCT|ENUM|ARRAY|STRING|TIME|DATE|TIME_OF_DAY|DATE_AND_TIME)\\b"
+        },
+        "strings": {
+            "name": "string.quoted.single.st",
+            "begin": "'",
+            "end": "'",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.st",
+                    "match": "\\\\."
+                }
+            ]
+        },
+        "comment": {
+            "name": "comment.block.st",
+            "begin": "\\(\\*",
+            "end": "\\*\\)",
+            "patterns": [
+                {
+                    "include": "#comment-block"
+                }
+            ]
+        },
+        "punctuation": {
+            "name": "punctuation.definition.st",
+            "match": "[{};(),.]"
+        },
+        "numeric_and_boolean_literals": {
+            "name": "constant.numeric.st",
+            "match": "\\b\\d+(\\.\\d+)?([eE][-+]?\\d+)?\\b|\\b(TRUE|FALSE)\\b"
+        },
+        "function_names": {
+            "name": "entity.name.function.st",
+            "match": "\\b[A-Z][A-Z0-9_]*\\b"
+        },
+        "type_names": {
+            "name": "entity.name.type.st",
+            "match": "\\b(STRUCT|ENUM|ARRAY|STRING|TIME|DATE|TIME_OF_DAY|DATE_AND_TIME)\\b"
+        },
+        "comment-block": {
+            "patterns": [
+                {
+                    "name": "comment.block.st",
+                    "begin": "^\\s*(\\*|\\*\\*|//)",
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "include": "#comment-block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "variable_names": {
+            "name": "variable.other.st",
+            "match": "\\b\\d+[a-zA-Z_]+\\d+(?:[a-zA-Z_]+(?:\\.[a-zA-Z_]+)?)?\\b"
+        }
+    },
+    "scopeName": "source.st"
+}
