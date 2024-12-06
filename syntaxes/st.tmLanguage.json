@@ -1,0 +1,110 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "ST",
+    "patterns": [
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#comment"
+        },
+        {
+            "include": "#punctuation"
+        },
+        {
+            "include": "#assignment_operators"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#numeric_literals"
+        },
+        {
+            "include": "#boolean_literals"
+        },
+        {
+            "include": "#function_names"
+        },
+        {
+            "include": "#type_names"
+        }
+    ],
+    "repository": {
+        "assignment_operators": {
+            "name": "keyword.operator.assignment.st",
+            "match": ":="
+        },
+        "operators": {
+            "name": "keyword.operator.st",
+            "match": "\\b(\\+|\\-|\\*|\\/|\\%|\\=|\\!=|\\<\\=|\\>\\=|\\<|\\>|\\&|\\||\\^|\\~|\\&&|\\|\\|)\\b"
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.st",
+                    "match": "\\b(IF|THEN|ELSE|END_IF|WHILE|END_WHILE|FOR|NEXT|CASE|END_CASE|RETURN|EXIT)\\b"
+                }
+            ]
+        },
+        "strings": {
+            "name": "string.quoted.single.st",
+            "begin": "'",
+            "end": "'",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.st",
+                    "match": "\\\\."
+                }
+            ]
+        },
+        "comment": {
+            "name": "comment.block.st",
+            "begin": "\\(\\*",
+            "end": "\\*\\)",
+            "patterns": [
+                {
+                    "include": "#comment-block"
+                }
+            ]
+        },
+        "punctuation": {
+            "name": "punctuation.definition.st",
+            "match": "[{};(),.]"
+        },
+        "numeric_literals": {
+            "name": "constant.numeric.st",
+            "match": "\\b\\d+(\\.\\d+)?([eE][-+]?\\d+)?\\b"
+        },
+        "boolean_literals": {
+            "name": "constant.language.st",
+            "match": "\\b(TRUE|FALSE)\\b"
+        },
+        "function_names": {
+            "name": "entity.name.function.st",
+            "match": "\\b[A-Z][A-Z0-9_]*\\b"
+        },
+        "type_names": {
+            "name": "entity.name.type.st",
+            "match": "\\b(STRUCT|ENUM|ARRAY|STRING|TIME|DATE|TIME_OF_DAY|DATE_AND_TIME)\\b"
+        },
+        "comment-block": {
+            "patterns": [
+                {
+                    "name": "comment.block.st",
+                    "begin": "^\\s*(\\*|\\*\\*|//)",
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "include": "#comment-block"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "scopeName": "source.st"
+}
