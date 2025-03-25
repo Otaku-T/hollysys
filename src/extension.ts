@@ -6,6 +6,7 @@ import * as path from 'path';
 import * as XLSX from 'xlsx';
 import { XMLParser } from 'fast-xml-parser';
 import { XMLBuilder } from 'fast-xml-parser';
+import { Console } from 'console';
 
 // 定义 XmlContent 类型
 interface XmlContent {
@@ -84,12 +85,15 @@ export function activate(context: vscode.ExtensionContext) {
             // 定义要创建的文件夹路径
             const folderPath1 = path.join(workspaceFolder, 'POU替换输出');
             const folderPath2 = path.join(workspaceFolder, 'POU替换输入');
-            const folderPath3 = path.join(workspaceFolder, '画面替换输入');
-            const folderPath4 = path.join(workspaceFolder, '画面替换输出');
+            const folderPath3 = path.join(workspaceFolder, '画面修改输入');
+            const folderPath4 = path.join(workspaceFolder, '画面修改输出');
             const folderPath5 = path.join(workspaceFolder, '典型回路输出');
             const folderPath6 = path.join(workspaceFolder, '典型回路输入');
             const folderPath7 = path.join(workspaceFolder, 'POU点名统计');
             const folderPath8 = path.join(workspaceFolder, 'ST顺控');
+            const folderPath9 = path.join(workspaceFolder, 'ST替换输出');
+            const folderPath10 = path.join(workspaceFolder, 'python仿真 ');
+            const folderPath11 = path.join(workspaceFolder, '备份');
             // 创建文件夹
             fs.mkdirSync(folderPath1, { recursive: true });
             fs.mkdirSync(folderPath2, { recursive: true });
@@ -99,6 +103,9 @@ export function activate(context: vscode.ExtensionContext) {
             fs.mkdirSync(folderPath6, { recursive: true });
             fs.mkdirSync(folderPath7, { recursive: true });
             fs.mkdirSync(folderPath8, { recursive: true });
+            fs.mkdirSync(folderPath9, { recursive: true });
+            fs.mkdirSync(folderPath10, { recursive: true });
+            fs.mkdirSync(folderPath11, { recursive: true });
             // 生成ST .xlsx 文件
             const workbook = XLSX.utils.book_new();
             const worksheetData = [
@@ -140,8 +147,8 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`创建文件夹时出错: ${err.message}`);
         }
     }); 
-    // 注册指令hollysysST, "更新ST变量表"
-    let disposable3 = vscode.commands.registerCommand('hollysys.hollysysST', () => {
+    // 注册指令hollysysSTExcel, "更新ST变量表"
+    let disposable3 = vscode.commands.registerCommand('hollysys.hollysysSTExcel', () => {
         try {
             // 获取当前工作区的根目录
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
@@ -180,7 +187,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const new_st_var = Array.from(new Set(english_strings));
                 console.log('读取数据',new_st_var);
                 // 生成 ST变量表v.xlsx 文件v
-                const worksheetData = [['变量名']];  // 工作表表头
+                const worksheetData = [['变量名','替换名']];  // 工作表表头
                 // 拼接数组
                 //console.log('读取数据',english_strings.map(str => [str]));
                 worksheetData.push(...new_st_var.map(str => [str]));
@@ -223,53 +230,75 @@ export function activate(context: vscode.ExtensionContext) {
             for (let i = 0; i < files.length; i++) {
                 // 获取文件名,绝对路径
                 const folderPathXML = path.join(folderPath2, files[i]);
-                // 调用函数XML解析函数
-                const xmlContent = getTextFromXml(folderPathXML);
+                const ext = path.extname(files[i]).toLowerCase(); // 获取小写扩展名
+                let xmlContent : XmlContent | null= null; // 使用let并初始化;
+                if (ext === '.xml') {
+                    xmlContent = getTextFromXml(folderPathXML);
+                } else if (ext === '.json') {
+                    xmlContent = getTextFromJson(folderPathXML);
+                } else {
+                    throw new Error(`不支持的文件类型: ${ext}`);
+                }
+                const xml_txt = JSON.parse(JSON.stringify(xmlContent?.textContent));
                  // 检查 xmlContent 是否为 null
                 if (xmlContent && xmlContent.textContent ) {
                     //和EXCEL表格工作表的第二行是否为 null
                     if (Exceldata?.jsonData[i][1] && Exceldata?.jsonData[i][1] !== null){
-                        console.log(`第${i+1}个文件有数据`);
-                        //一个模板多个替换
+                        // console.log(`第${i+1}个文件有数据`,Exceldata?.jsonData[i][1].length);
+                        // 一个模板多个替换
                         for (let k = 1; k < Exceldata?.jsonData[i][1].length; k++) {
                             // 第二个循环替换点名
                             for (let j = 0; j < xmlContent.textContent.length; j++) {
+                                //检测EXCEL数据与XML文件点名是否匹配
                                 if (xmlContent.textContent[j] === Exceldata?.jsonData[i][j + 1][k-1]) {
                                     if (Exceldata?.jsonData[i][j + 1][k] !==''){
                                         //console.log('替换',Exceldata?.jsonData[i][j + 1][k]);
                                         xmlContent.textContent[j] = Exceldata?.jsonData[i][j + 1][k];
-                                    } else {
-                                        console.log('点名为空不执行');
-                                    }
+                                    } 
                                 } else {
-                                    console.log('点名为空不执行');
-                                    //vscode.window.showInformationMessage('EXCEL数据与XML文件点名不匹配,请重新生成点名表');
+                                    // console.log('EXCEL数据与解析文件点名不匹配');
+                                    vscode.window.showInformationMessage('EXCEL数据与XML文件点名不匹配,请重新生成点名表');
                                 }
                             }
-                            // 将更改后jsonData内容写入文件，返回新的json对象
-                            const newJson = updateTextInXml(folderPathXML, xmlContent);
-                            //修改生成后的文件名称
-                            newJson.pou.name = `${newJson.pou.name}${k}`;
-                            // 将更改后jsonData内容写入文件
-                            const folderPathOut = path.join(folderPath3, `${k}${files[i]}`);
-                            //console.log('文件路径',folderPathOut);
-                            generateXmlFile (folderPathOut, newJson);
+                            if (xmlContent.textContent.length === xml_txt.length && xmlContent.textContent.every((value, index) => value === xml_txt[index])){
+                                console.log('不生成文件');
+                                continue;
+                            }
+                            if (ext === '.xml') {
+                                // 将更改后jsonData内容写入文件，返回新的json对象
+                                const newJson = updateTextInXml(folderPathXML, xmlContent);
+                                //修改生成后的文件名称
+                                newJson.pou.name = `${newJson.pou.name}${k}`;
+                                // 将更改后jsonData内容写入文件
+                                const folderPathOut = path.join(folderPath3, `${k}${files[i]}`);
+                                //console.log('文件路径',folderPathOut);
+                                generateXmlFile (folderPathOut, newJson);
+                            } else if (ext === '.json') {
+                                // 将更改后jsonData内容写入文件，返回新的json对象
+                                const newJson = updateTextInJson(folderPathXML, xmlContent);
+                                newJson.PouInfo.pou_name = `${newJson.PouInfo.pou_name}${k}`;
+                                // 将更改后jsonData内容写入文件
+                                const folderPathOut = path.join(folderPath3, `${k}${files[i]}`);
+                                //console.log('文件路径',folderPathOut);
+                                generateJsonFile (folderPathOut, newJson);
+                            } else {
+                                throw new Error(`不支持的文件类型: ${ext}`);
+                            }
                         }
                     } else {
-                        console.log(`第${i+1}个文件没有数据，请检查点名表`);
+                        // console.log(`第${i+1}个文件没有数据，请检查点名表`);
                         vscode.window.showErrorMessage(`第${i+1}个文件没有数据，请检查点名表`);
                     }
                 } else {
                     vscode.window.showErrorMessage(`XML 文件解析失败: ${files[i]}`);
                 }
             }
-            console.log('已生成替换POU');
+            // console.log('已生成替换POU');
             vscode.window.showInformationMessage('已生成替换POU');
         } catch (error) {
 			const err = error as Error; // 类型断言
             vscode.window.showErrorMessage(`生成替换POU出错: ${err.message}`);
         }
-         
     });
     // 注册指令hollysysPID, ""生成回路""
     let disposable5 = vscode.commands.registerCommand('hollysys.hollysysPID', () => {
@@ -294,15 +323,28 @@ export function activate(context: vscode.ExtensionContext) {
                     if (newJsonxml[i].length > 0){
                         // 获取文件名,绝对路径
                         //console.log('poU个数',newJsonxml[i].length);
+                        const ext = path.extname(files[i]).toLowerCase(); // 获取小写扩展名
                         const folderPathXML = path.join(folderPath2, files[i]);
                         for (let j = 0; j < newJsonxml[i].length; j++) {
-                            const json = addTextInXml(folderPathXML,newJsonxml[i][j]);
-                            //修改生成后的文件名称
-                            json.pou.name = `${json.pou.name}${j}`;
-                            // 将更改后jsonData内容写入文件
-                            const folderPathOut = path.join(folderPath3, `${j}${files[i]}`);
-                            console.log('文件路径',folderPathOut);
-                            generateXmlFile (folderPathOut, json);
+                            if (ext === '.xml') {
+                                const json = addTextInXml(folderPathXML,newJsonxml[i][j]);
+                                //修改生成后的文件名称
+                                json.pou.name = `${json.pou.name}${j}`;
+                                // 将更改后jsonData内容写入文件
+                                const folderPathOut = path.join(folderPath3, `${j}${files[i]}`);
+                                console.log('文件路径',folderPathOut);
+                                generateXmlFile (folderPathOut, json);
+                            } else if (ext === '.json') {
+                                const json = addTextInJson(folderPathXML,newJsonxml[i][j]);
+                                //修改生成后的文件名称
+                                json.PouInfo.pou_name = `${json.PouInfo.pou_name}${j}`;
+                                // 将更改后jsonData内容写入文件
+                                const folderPathOut = path.join(folderPath3, `${j}${files[i]}`);
+                                console.log('文件路径',folderPathOut);
+                                generateJsonFile (folderPathOut, json);
+                            } else {
+                                throw new Error(`不支持的文件类型: ${ext}`);
+                            }
                         }
                     } else {
                         console.log('不生成回路');
@@ -317,8 +359,8 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`生成典型回路出错: ${err.message}`);
         }
     });
-    // 注册指令hollysysSTExcel, "生成ST顺控"
-    let disposable6 = vscode.commands.registerCommand('hollysys.hollysysSTExcel', () => {
+    // 注册指令hollysysST, "生成ST顺控"
+    let disposable6 = vscode.commands.registerCommand('hollysys.hollysysST', () => {
         try {
             // 获取当前工作区的根目录
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
@@ -346,10 +388,9 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`生成ST顺控出错: ${err.message}`);
         } 
     });
-    // 注册指令hollysysHIM, "替换画面"
+    // 注册指令hollysysHIM, "修改画面"
     let disposable7 = vscode.commands.registerCommand('hollysys.hollysysHIM', () => {
-        
-        vscode.window.showInformationMessage('已生成替换互面');
+        vscode.window.showInformationMessage('已生成替换画面');
     });
     // 注册指令hollysysPOUExcel, "更新POU变量表"
     let disposable8 = vscode.commands.registerCommand('hollysys.hollysysPOUExcel', () => {
@@ -398,8 +439,120 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`创建新pou替换excel文件出错: ${err.message}`);
         }
     });
+    // 注册指令hollysysHIM, "替换ST"
+    let disposable9 = vscode.commands.registerCommand('hollysys.hollysysSTPOU', () => {
+        // 每次命令被执行时，此处的代码将被运行
+        try {
+            //console.log('开始执行命令');
+            // 获取当前工作区的根目录
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('没有打开的工作区');
+                return;
+            }
+            // 获取当前工作区路径 点名替换.xlsx
+            const folderPath1 = path.join(workspaceFolder, 'ST变量表.xlsx');
+            const Exceldata = readExcelFile(folderPath1);   // 调用函数读取Excel文件
+            
+            // 获取当前工作区路径POU替换输入下的文件夹
+            const folderPath2 = path.join(workspaceFolder, 'ST顺控');
+            const folderPath3 = path.join(workspaceFolder, 'ST替换输出');
+            const files =  getFilesInDirectory(folderPath2);
+            for (let i = 0; i < files.length; i++) {
+                // 获取文件名,绝对路径
+                const folderPathST = path.join(folderPath2, files[i]);
+                const ext = path.extname(files[i]).toLowerCase(); // 获取小写扩展名
+                // console.log(`文件: ${i}`);
+                // 同步读取文件内容i
+                let stFileContent = '';
+                if (ext === '.st'&& Exceldata && Exceldata.jsonData && Exceldata.jsonData[i] && Array.isArray(Exceldata.jsonData[i][1])) {
+                    stFileContent = fs.readFileSync(folderPathST, 'utf8');
+                    // console.log(`文件内容: ${Exceldata?.jsonData[i][1].length}`);
+                    // 一个顺控要替换几次
+                    for (let k = 1; k < Exceldata?.jsonData[i][1].length; k++){
+                        // console.log(`替换几次: ${k}`);
+                        // 一个顺控中有多少点要替换
+                        for (let j = 1; j < Exceldata?.jsonData[i].length; j++) {
+                            // console.log(`点次数: ${j}`);
+                            if (Exceldata?.jsonData[i][j][k] !=='' && Exceldata?.jsonData[i][j][k] !== undefined){
+                                const regex = new RegExp(Exceldata?.jsonData[i][j][k-1], 'g'); // 创建带全局标志的正则表达式
+                                stFileContent = stFileContent.replace(regex, Exceldata?.jsonData[i][j][k]); // 重新赋值
+                                // console.log('替换',Exceldata?.jsonData[i][j][0],Exceldata?.jsonData[i][j][k]);
+                            }
+                        }
+                        const outputFilePath = path.join(folderPath3, `${(k-1)+files[i]}`);
+                        
+                        // console.log(`路径: ${outputFilePath}`);
+                        // 将文本内容写入文件
+                        fs.writeFile(outputFilePath, stFileContent, 'utf8', (err) => {
+                            if (err) {
+                                console.error('文件写入错误:', err);
+                            } else {
+                                console.log('保存路径', outputFilePath);
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`不支持的文件类型: ${ext}`);
+                }
+            }
+            vscode.window.showInformationMessage('已生成替换ST');
+        } catch (error) {
+            const err = error as Error; // 类型断言
+            vscode.window.showErrorMessage(`生成替换ST出错: ${err.message}`);
+        }
+    });
+    // 注册指令hollysysDATA, "数据分类"
+    let disposable10 = vscode.commands.registerCommand('hollysys.hollysysDATA', () => {
+        vscode.window.showInformationMessage('已生成数据分类表格');
+    });
+    // 注册指令hollysysPY, "生成调试PY文件"
+    let disposable11 = vscode.commands.registerCommand('hollysys.hollysysPY', () => {
+        vscode.window.showInformationMessage('已生成python文件');
+    });
+    // 注册指令hollysysbf, "备份excel文件"
+    let disposable12 = vscode.commands.registerCommand('hollysys.hollysysBF', () => {
+        try {
+            // 获取当前工作区的根目录
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('没有打开的工作区');
+                return;
+            }
+            // 获取完整时间字符串（本地时间）
+            // 获取当前时间对象
+            const now = new Date();
+            const currentTime = now.toLocaleString();
+            const safeFilename = currentTime
+            .replace(/\//g, "-")     // 替换斜杠为连字符
+            .replace(/:/g, "-")      // 替换冒号为连字符
+            .replace(/\s/g, "_")    // 替换空格为下划线
+            .slice(0, -3);               // 删除最后三位字符
+            console.log(`当前时间：${safeFilename}`);
+            // 获取当前工作区路径POU替换输入下的文件夹
+            const folderPath = path.join(workspaceFolder, '备份',safeFilename);
+            fs.mkdirSync(folderPath, { recursive: true });
+            const files = getFilesInDirectory(workspaceFolder);
+            for (const file of files) {
+                const ext = path.extname(file).toLowerCase(); // 获取文件小写扩展名
+                if (ext === '.xlsx') {
+                    const src = path.join(workspaceFolder, file);
+                    const dest = path.join(folderPath, file);
+                    fs.copyFileSync(src, dest);
+                    // console.log(`成功复制文件: ${file}`);
+                }
+            }
+            // 向用户显示一个消息框
+            vscode.window.showInformationMessage('已备份excel文件');
+        } catch (error) {
+            const err = error as Error; // 类型断言
+            vscode.window.showErrorMessage(`备份excel文件出错: ${err.message}`);
+        }
+        
+    });
 	// 将注册的命令添加到上下文的 subscriptions 数组中，以确保在扩展停用时正确清理
-	context.subscriptions.push(disposable1, disposable2, disposable3, disposable4, disposable5, disposable6, disposable7, disposable8);
+	context.subscriptions.push(disposable1, disposable2, disposable3, disposable4, disposable5, disposable6, 
+        disposable7, disposable8, disposable9, disposable10, disposable11, disposable12);
     // 获取目录下的所有文件，返回文件名数组
     function getFilesInDirectory(directoryPath: string): string[] {
         try {
@@ -418,14 +571,24 @@ export function activate(context: vscode.ExtensionContext) {
             // 获取当前工作区路径POU替换输入下的文件夹
             const folderPath = path.join(workspaceFolder, 'POU替换输入');
             const files = getFilesInDirectory(folderPath);
+            if (!files.length) {
+                vscode.window.showErrorMessage('没有找到POU替换输入文件夹下的文件');
+                return;
+            }
             let index = 0;  // 索引
             const workbook = XLSX.utils.book_new();  // 创建新的工作簿
-            
             for (const file of files) {
                 // 获取文件名,绝对路径
                 const folderPathXML = path.join(folderPath, files[index]);
-                // 调用函数XML解析函数
-                const XmlContent = getTextFromXml(folderPathXML);
+                const ext = path.extname(file).toLowerCase(); // 获取小写扩展名
+                let XmlContent : XmlContent | null= null; // 使用let并初始化;
+                if (ext === '.xml') {
+                    XmlContent = getTextFromXml(folderPathXML);
+                } else if (ext === '.json') {
+                    XmlContent = getTextFromJson(folderPathXML);
+                } else {
+                    throw new Error(`不支持的文件类型: ${ext}`);
+                }
                 // 获取XML文件中的点名数组内容
                 const textContent = XmlContent?.textContent || [];
                 // 生成 点名替换.xlsx 文件
@@ -458,13 +621,24 @@ export function activate(context: vscode.ExtensionContext) {
             // 获取当前工作区路径POU替换输入下的文件夹
             const folderPath = path.join(workspaceFolder, '典型回路输入');
             const files = getFilesInDirectory(folderPath);
+            if (!files.length) {
+                vscode.window.showErrorMessage('没有找到典型回路输入文件夹下的文件');
+                return;
+            }
             let index = 0;  // 索引
             const workbook = XLSX.utils.book_new();  // 创建新的工作簿
             for (const file of files) {
                 // 获取文件名,绝对路径
                 const folderPathXML = path.join(folderPath, files[index]);
-                // 调用函数XML解析函数
-                const XmlContent = getTextFromXml(folderPathXML);
+                const ext = path.extname(file).toLowerCase(); // 获取小写扩展名
+                let XmlContent : XmlContent | null= null; // 使用let并初始化;
+                if (ext === '.xml') {
+                    XmlContent = getTextFromXml(folderPathXML);
+                } else if (ext === '.json') {
+                    XmlContent = getTextFromJson(folderPathXML);
+                } else {
+                    throw new Error(`不支持的文件类型: ${ext}`);
+                }
                 // 处理解析数据中的二维数组
                 // 将二维数组转换为一维数组，每个元素是子数组的字符串形式
                 const flattenedInputidxContent: string[] = (XmlContent?.inputidxContent || []).map(subArray => subArray.join(', '));
@@ -476,7 +650,7 @@ export function activate(context: vscode.ExtensionContext) {
                 worksheetData.push(flattenedInputidxContent);
                 worksheetData.push(XmlContent?.textContent || []);
                 const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);   // 将数据转换为工作表
-                console.log(`文件夹下XML文件名: ${file}`);
+                // console.log(`文件夹下XML文件名: ${file}`);
                 XLSX.utils.book_append_sheet(workbook, worksheet, file);    // 将工作表添加到工作簿中
                 index++;         // 更新索引
             }
@@ -490,22 +664,23 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`创建新典型回路excel文件出错: ${err.message}`);
         }
     }
-    //创建新画面替换excel文件
+    //创建新画面修改excel文件
     function generateExcelFilesHIM(workspaceFolder: string): void {
         try {
+
             // 生成 典型回路.xlsx 文件
             const workbook2 = XLSX.utils.book_new();
             const worksheetData2 = [
-                ['原画面点名', '替换画面点名']
+                ['原画面点名', '修改画面点名']
             ];
             const worksheet2 = XLSX.utils.aoa_to_sheet(worksheetData2);
             XLSX.utils.book_append_sheet(workbook2, worksheet2, 'Sheet1');
     
-            const filePath2 = path.join(workspaceFolder, '画面替换.xlsx');
+            const filePath2 = path.join(workspaceFolder, '画面修改.xlsx');
             XLSX.writeFile(workbook2, filePath2);
     
             // 向用户显示一个消息框
-            vscode.window.showInformationMessage('画面替换EXCEL已成功创建！');
+            vscode.window.showInformationMessage('画面修改EXCEL已成功创建！');
         } catch (error) {
             const err = error as Error; // 类型断言
             vscode.window.showErrorMessage(`创建文件夹时出错: ${err.message}`);
@@ -565,7 +740,150 @@ export function activate(context: vscode.ExtensionContext) {
             return null;
         }
     }
-    // 修改 XML 文件内容并返回修改后的 JSON 对象
+    //读取 JSON 文件中的 <text> 标签内容
+    function getTextFromJson(filePath: string): XmlContent  | null {
+
+        try {
+            // 1. 使用utf8编码读取文件
+            const rawData = fs.readFileSync(filePath, 'utf8');
+            // 2. 解析外层JSON结构
+            const outerJson = JSON.parse(rawData);
+            // 3. 解析内部pou字段的JSON字符串
+            const poujson = JSON.parse(outerJson.pou);
+            // console.log('读取JSON',poujson.PouInfo.pou_data.pou_data);
+            // 检查 json.pou.cfc 是否存在  
+            if (!poujson.PouInfo.pou_data || !poujson.PouInfo.pou_data.pou_data.CFCElementList ) {
+                vscode.window.showErrorMessage('JSON 文件结构不正确，缺少必要的标签');
+                return null;
+            }
+            // 统计 POU.XML文件中有多少个element对象
+            const elementCount = poujson.PouInfo.pou_data.pou_data.CFCElementList.length;
+            //console.log('长度',elementCount);
+            let typeContent: string[] = [];  // 初始化为空数组
+            let idContent: string[] = [];  // 初始化为空数组
+            let positionContent: string[] = [];  // 初始化为空数组
+            let textContent: string[] = [];  // 初始化为空数组
+            let inputidxContent: string[][] = [];  // 初始化为空数组
+            // 提取 <text> 标签的内容
+            for (let i = 0; i < elementCount; i++) {
+                const element = poujson.PouInfo.pou_data.pou_data.CFCElementList[i]; // 获取一个新对象
+                const elementType = Object.keys(element)[0];        //获取对象的第一个键名
+                if (elementType === 'CFCInput') {
+                    typeContent.push(elementType || '');  //获取对象的第一个键名
+                    // 组合ID
+                    const id_data = element[elementType].CFCElement?.Element?.ElementID + ',' + element[elementType].CFCOutputPin?.CFCPin?.PinID;
+                    idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+                    // 组合XY坐标
+                    const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY +
+                     ',' + (element[elementType].AnchorPosX - element[elementType].CFCElement?.Element?.PosX) +
+                     ',' + (element[elementType].AnchorPosY - element[elementType].CFCElement?.Element?.PosY);
+                    positionContent.push(position_data || '');
+                    const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+                    const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+                    const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+                    textContent.push(text_data || '');
+                    inputidxContent.push([]);
+                    //console.log('内容',JSON.stringify(element[elementType], null, 2));
+                } else if (elementType === 'CFCOutput') {
+                    typeContent.push(elementType || '');  //获取对象的第一个键名
+                    // 组合ID
+                    const id_data = element[elementType].CFCElement?.Element?.ElementID + ',' + element[elementType].CFCInputPin?.CFCPin?.PinID;
+                    idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+                    // 组合XY坐标
+                    const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY;
+                    positionContent.push(position_data || '');
+                    const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+                    const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+                    const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+                    textContent.push(text_data || '');
+                    inputidxContent.push([element[elementType].CFCInputPin?.RefPinID || '']);
+                } else if (elementType === 'CFCBox') {
+                    typeContent.push(elementType || '');  //获取对象的第一个键名
+                    // 组合ID
+                    let id_box_in = '';             // 统计 CFCBox 中的输入引脚ID
+                    let id_box_out = '';            // 统计 CFCBox 中的输出引脚ID
+                    // 正确遍历 CFCOutputPinList 数组
+                    if (element[elementType].CFCOutputPinList) {
+                        for (const pinItem of element[elementType].CFCOutputPinList) {
+                            const pin = pinItem.CFCOutputPin; // 获取每个 CFCOutputPin 对象
+                            if (pin?.CFCPin?.PinID !== undefined) {
+                                id_box_out += pin.CFCPin.PinID + ',';
+                            }
+                        }
+                    }
+                    // 同样修正 CFCInputPinList 的遍历（如果存在）
+                    if (element[elementType].CFCInputPinList) {
+                        for (const pinItem of element[elementType].CFCInputPinList) {
+                            const pin = pinItem.CFCInputPin;
+                            if (pin?.CFCPin?.PinID !== undefined) {
+                                id_box_in += pin.CFCPin.PinID + ',';
+                            }
+                        }
+                    }
+                    id_box_out = id_box_out ? id_box_out.slice(0, -1) : '';
+                    const id_data = element[elementType].CFCElement?.Element?.ElementID + ',' + id_box_in + id_box_out;
+                    idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+                    // 组合XY坐标
+                    const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY +
+                     ',' + (element[elementType].AnchorPosX - element[elementType].CFCElement?.Element?.PosX) +
+                     ',' + (element[elementType].AnchorPosY - element[elementType].CFCElement?.Element?.PosY);
+                    positionContent.push(position_data || '');
+                    if (element[elementType].FBVarName) {
+                        const text_data =element[elementType].FBVarName;
+                        textContent.push(text_data || '');
+                    } else {
+                        const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+                        const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+                        const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+                        textContent.push(text_data || '');
+                    }
+                    //console.log('内容',JSON.stringify(element[elementType].CFCInputPinList, null, 2));
+                    inputidxContent.push([]);  // 确保 inputidxContent[i] 是一个数组
+                    if (element[elementType].CFCInputPinList) {
+                        for (const pinItem of element[elementType].CFCInputPinList) {
+                            const refPinID = pinItem.CFCInputPin?.RefPinID || 0;
+                            inputidxContent[inputidxContent.length - 1].push(refPinID);
+                        }
+                    }
+                } else if (elementType === 'CFCComment') {
+                    typeContent.push(elementType || '');  //获取对象的第一个键名
+                    // 组合ID
+                    const id_data = element[elementType].CFCElement?.Element?.ElementID;
+                    idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+                    // 组合XY坐标
+                    const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY;
+                    positionContent.push(position_data || '');
+                    const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+                    const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+                    const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+                    textContent.push(text_data || '');
+                    inputidxContent.push([]);
+                } else if (elementType === 'CFCLine'){
+                    typeContent.push(elementType || '');  //获取对象的第一个键名
+                    // 组合ID
+                    const id_data = '0' + ',' + element[elementType].InputPinID+ ',' + element[elementType].OutputPinID;
+                    idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+                    // 组合XY坐标
+                    // positionContent.push('');
+                    // textContent.push('');
+                    // inputidxContent.push([]);
+                } else {
+                    vscode.window.showErrorMessage('JSON 文件不能包含输入、输出、功能块、注释之外的其他类型元素');
+                }
+            }
+            // console.log('类型',typeContent);
+            // console.log('ID',idContent);
+            // console.log('坐标',positionContent);
+            // console.log('名字',textContent);
+            // console.log('连接',inputidxContent);
+            return { typeContent, idContent, positionContent, textContent, inputidxContent };
+        } catch (error) {
+            const err = error as Error; // 类型断言
+            vscode.window.showErrorMessage(`读取 json 文件出错: ${err.message}`);
+            return null;
+        }
+    }
+    // 修改 XML 文件内容并返回修改后的 JSON 对象 (仅修改点名)
     function updateTextInXml(filePath: string, newJson: XmlContent):  any  {
         try {
             const xmlContent = fs.readFileSync(filePath, 'latin1');      // 读取 XML 文件内容
@@ -582,35 +900,84 @@ export function activate(context: vscode.ExtensionContext) {
             // 遍历元素集合，为每个元素设置或更新其属性
             for (let i = 0; i < elementCount; i++) {
                 // 设置元素的id属性
-                json.pou.cfc.element[i].id = newJson.idContent[i];
+                // json.pou.cfc.element[i].id = newJson.idContent[i];
                 // 根据条件更新元素的text或AT_type属性
                 if (json.pou.cfc.element[i].text !== undefined) {
                     json.pou.cfc.element[i].text = newJson.textContent[i];
                 } else {
                     json.pou.cfc.element[i].AT_type = newJson.textContent[i];
                 }
-                // 根据元素类型更新位置相关属性
-                if (json.pou.cfc.element[i]['@_type'] === 'input') {
-                    json.pou.cfc.element[i].AT_position = newJson.positionContent[i];  
-                } else if (json.pou.cfc.element[i]['@_type'] === 'output') {
-                    json.pou.cfc.element[i].position = newJson.positionContent[i];  
-                    json.pou.cfc.element[i].Inputid = newJson.inputidxContent[i][0];  
-                } else if (json.pou.cfc.element[i]['@_type'] === 'box') {
-                    json.pou.cfc.element[i].AT_position = newJson.positionContent[i];  
-                    // 对于box类型元素，更新其所有输入的inputid属性
-                    const inputCount = json.pou.cfc.element[i].input ? json.pou.cfc.element[i].input.length : 0;
-                    for (let j = 0; j < inputCount; j++) {
-                        json.pou.cfc.element[i].input[j]['@_inputid'] = newJson.inputidxContent[i][j];  
-                    }
-                } else {
-                    json.pou.cfc.element[i].position = newJson.positionContent[i];  
-                }
+                // // 根据元素类型更新位置相关属性
+                // if (json.pou.cfc.element[i]['@_type'] === 'input') {
+                //     json.pou.cfc.element[i].AT_position = newJson.positionContent[i];  
+                // } else if (json.pou.cfc.element[i]['@_type'] === 'output') {
+                //     json.pou.cfc.element[i].position = newJson.positionContent[i];  
+                //     json.pou.cfc.element[i].Inputid = newJson.inputidxContent[i][0];  
+                // } else if (json.pou.cfc.element[i]['@_type'] === 'box') {
+                //     json.pou.cfc.element[i].AT_position = newJson.positionContent[i];  
+                //     // 对于box类型元素，更新其所有输入的inputid属性
+                //     const inputCount = json.pou.cfc.element[i].input ? json.pou.cfc.element[i].input.length : 0;
+                //     for (let j = 0; j < inputCount; j++) {
+                //         json.pou.cfc.element[i].input[j]['@_inputid'] = newJson.inputidxContent[i][j];  
+                //     }
+                // } else {
+                //     json.pou.cfc.element[i].position = newJson.positionContent[i];  
+                // }
             }
             return  json;
         } catch (error) {
             const err = error as Error;
             vscode.window.showErrorMessage(`修改 XML 文件出错: ${err.message}`);
             return  null;
+        }
+    }
+    // 修改 JSON 文件内容并返回修改后的 JSON 对象 (仅修改点名)
+    function updateTextInJson(filePath: string, newJson: XmlContent):  any  {
+        try {
+            // 1. 使用utf8编码读取文件
+            const rawData = fs.readFileSync(filePath, 'utf8');
+            // 2. 解析外层JSON结构
+            const outerJson = JSON.parse(rawData);
+            // 3. 解析内部pou字段的JSON字符串
+            const poujson = JSON.parse(outerJson.pou);
+            // console.log('读取JSON',poujson.PouInfo.pou_data.pou_data);
+            // 检查 json.pou.cfc 是否存在  
+            if (!poujson.PouInfo.pou_data || !poujson.PouInfo.pou_data.pou_data.CFCElementList ) {
+                vscode.window.showErrorMessage('JSON 文件结构不正确，缺少必要的标签');
+                return null;
+            }
+            // 统计 POU.XML文件中有多少个element对象
+            const elementCount = poujson.PouInfo.pou_data.pou_data.CFCElementList.length;
+            // 遍历元素集合，为每个元素设置或更新其属性
+            for (let i = 0; i < elementCount; i++) {
+                const element = poujson.PouInfo.pou_data.pou_data.CFCElementList[i]; // 获取当前元素
+                const elementType = Object.keys(element)[0]; // 获取类型键名
+            
+                if (elementType === 'CFCInput') {
+                    const text_data = Buffer.from(newJson.textContent[i], 'utf-8').toString('base64');
+                    // 直接修改当前元素的属性
+                    element[elementType].CFCElement.Element.ElementText = text_data;
+                } else if (elementType === 'CFCOutput') {
+                    const text_data = Buffer.from(newJson.textContent[i], 'utf-8').toString('base64');
+                    element[elementType].CFCElement.Element.ElementText = text_data;
+                } else if (elementType === 'CFCBox') {
+                    if (element[elementType].FBVarName) {
+                        element[elementType].FBVarName = newJson.textContent[i];
+                    } else {
+                        const text_data = Buffer.from(newJson.textContent[i], 'utf-8').toString('base64');
+                        element[elementType].CFCElement.Element.ElementText = text_data;
+                    }
+                } else if (elementType === 'CFCComment') {
+                    const text_data = Buffer.from(newJson.textContent[i], 'utf-8').toString('base64');
+                    element[elementType].CFCElement.Element.ElementText = text_data;
+                }
+                poujson.PouInfo.pou_data.pou_data.CFCElementList[i] = element;
+            }
+            return  poujson;
+        } catch (error) {
+            const err = error as Error;
+            vscode.window.showErrorMessage(`修改 JSON 文件出错: ${err.message}`);
+            return  null; 
         }
     }
      // 修改 XML 文件内容并返回修改后的 JSON 对象
@@ -679,6 +1046,137 @@ export function activate(context: vscode.ExtensionContext) {
             return  null;
         }
     }
+     // 修改 json 文件内容并返回修改后的 JSON 对象
+     function addTextInJson(filePath: string, newJson: XmlContent):  any  {
+        try {
+            // 1. 使用utf8编码读取文件
+            const rawData = fs.readFileSync(filePath, 'utf8');
+            // 2. 解析外层JSON结构
+            const outerJson = JSON.parse(rawData);
+            // 3. 解析内部pou字段的JSON字符串
+            const poujson = JSON.parse(outerJson.pou);
+            // console.log('读取JSON',poujson.PouInfo.pou_data.pou_data);
+            // 检查 json.pou.cfc 是否存在  
+            if (!poujson.PouInfo.pou_data || !poujson.PouInfo.pou_data.pou_data.CFCElementList ) {
+                vscode.window.showErrorMessage('JSON 文件结构不正确，缺少必要的标签');
+                return null;
+            }
+            //计算一个POU中PID回路的个数
+            const oldelementCount = poujson.PouInfo.pou_data.pou_data.CFCElementList.length;   //替换前的变量个数
+            const pidCount = newJson.idContent.length /oldelementCount;
+            // 🔥 关键修改：深拷贝原数组
+            let oldelement = [];
+            //structuredClone(poujson.PouInfo.pou_data.pou_data.CFCElementList);
+            // console.log('回路个数', pidCount);
+            for (let m = 1; m < pidCount; m++) {  //本身有一组回路，
+                oldelement.push(...JSON.parse(JSON.stringify(poujson.PouInfo.pou_data.pou_data.CFCElementList)));
+            }
+            poujson.PouInfo.pou_data.pou_data.CFCElementList.push(...oldelement);
+            // console.log('元素个数', poujson.PouInfo.pou_data.pou_data.CFCElementList.length);
+            // console.log('旧元素个数', oldelement.length);
+            // 将ID数组，转化为二维数组
+            const newJson_idContent = unflattenInputidxContent(newJson.idContent);
+            // console.log('ID数组', newJson_idContent);
+            // 将XY坐标数组，转化为二维数组
+            const newJson_positionContent = unflattenInputidxContent(newJson.positionContent);
+            // console.log('XY坐标数组', newJson_positionContent);
+            // 统计 POU.XML文件中有多少个element对象
+            const elementCount = poujson.PouInfo.pou_data.pou_data.CFCElementList.length;
+            // 遍历元素集合，为每个元素设置或更新其属性
+            let index = 0;          // 遍历索引(json中有连线对象，连线对象中数缺失需要单独索引)
+            for (let i = 0; i < elementCount; i++) {
+                const element = poujson.PouInfo.pou_data.pou_data.CFCElementList[i]; // 获取当前元素
+                const elementType = Object.keys(element)[0]; // 获取类型键名
+                // console.log('类型', index,i,elementType);
+                if (elementType === 'CFCInput') {
+                    //修改点名
+                    const text_data = Buffer.from(newJson.textContent[index], 'utf-8').toString('base64');
+                    element[elementType].CFCElement.Element.ElementText = text_data;
+                    //修改ID
+                    // console.log('CFCInput', element[elementType].CFCOutputPin.CFCPin.PinID);
+                    element[elementType].CFCElement.Element.ElementID = Number(newJson_idContent[i][0]);
+                    element[elementType].CFCOutputPin.CFCPin.PinID = Number(newJson_idContent[i][1]);
+                    //修改XY坐标
+                    element[elementType].CFCElement.Element.PosX = Number(newJson_positionContent[index][0]);
+                    element[elementType].CFCElement.Element.PosY = Number(newJson_positionContent[index][1]);
+                    element[elementType].AnchorPosX = Number(newJson_positionContent[index][0]) + Number(newJson_positionContent[index][2]);
+                    element[elementType].AnchorPosY = Number(newJson_positionContent[index][1]) + Number(newJson_positionContent[index][3]);
+                    index += 1; // 索引加1
+                } else if (elementType === 'CFCOutput') {
+                    //修改点名
+                    const text_data = Buffer.from(newJson.textContent[index], 'utf-8').toString('base64');
+                    element[elementType].CFCElement.Element.ElementText = text_data;
+                    //修改ID
+                    // console.log('CFCOutput', element[elementType].CFCInputPin.CFCPin.PinID);
+                    element[elementType].CFCElement.Element.ElementID = Number(newJson_idContent[i][0]);
+                    element[elementType].CFCInputPin.CFCPin.PinID = Number(newJson_idContent[i][1]);
+                    //修改XY坐标
+                    element[elementType].CFCElement.Element.PosX = Number(newJson_positionContent[index][0]);
+                    element[elementType].CFCElement.Element.PosY = Number(newJson_positionContent[index][1]);
+                    // 引脚连接
+                    element[elementType].CFCInputPin.RefPinID = Number(newJson.inputidxContent[i][0]);
+                    index += 1; // 索引加1
+                } else if (elementType === 'CFCBox') {
+                    //修改点名
+                    if (element[elementType].FBVarName) {
+                        element[elementType].FBVarName = newJson.textContent[index];
+                    } else {
+                        const text_data = Buffer.from(newJson.textContent[index], 'utf-8').toString('base64');
+                        element[elementType].CFCElement.Element.ElementText = text_data;
+                    }
+                    //修改ID
+                    // console.log('CFCBox', element[elementType].CFCInputPinList.length,element[elementType].CFCOutputPinList.length);
+                    let id_box = 0;
+                    element[elementType].CFCElement.Element.ElementID = Number(newJson_idContent[i][id_box]);        
+                    for (let q = 0 ; q < element[elementType].CFCInputPinList.length; q++) {
+                        id_box += 1;
+                        // console.log('CFCInputPin', element[elementType].CFCInputPinList[q].CFCInputPin.CFCPin.PinID);
+                        element[elementType].CFCInputPinList[q].CFCInputPin.CFCPin.PinID = Number(newJson_idContent[i][id_box]);  
+                    }
+                    for (let q = 0 ; q < element[elementType].CFCOutputPinList.length; q++) {
+                        id_box += 1;
+                        // console.log('CFCOutputPin', element[elementType].CFCOutputPinList[q].CFCOutputPin.CFCPin.PinID);
+                        element[elementType].CFCOutputPinList[q].CFCOutputPin.CFCPin.PinID = Number(newJson_idContent[i][id_box]);  
+                    }
+                    //修改XY坐标
+                    element[elementType].CFCElement.Element.PosX = Number(newJson_positionContent[index][0]);
+                    element[elementType].CFCElement.Element.PosY = Number(newJson_positionContent[index][1]);
+                    element[elementType].AnchorPosX = Number(newJson_positionContent[index][0]) + Number(newJson_positionContent[index][2]);
+                    element[elementType].AnchorPosY = Number(newJson_positionContent[index][1]) + Number(newJson_positionContent[index][3]);
+                    // 引脚连接
+                    for (let q = 0 ; q < element[elementType].CFCInputPinList.length; q++) {
+                        if (element[elementType].CFCInputPinList[q].CFCInputPin?.RefPinID){
+                            element[elementType].CFCInputPinList[q].CFCInputPin.RefPinID = Number(newJson.inputidxContent[i][q]);
+                            //console.log('引脚连接', element[elementType].CFCInputPinList[q].CFCInputPin.CFCPin.PinName,Number(newJson.inputidxContent[i][q]));
+                        }
+                    }
+                    index += 1; // 索引加1
+                } else if (elementType === 'CFCComment') {
+                    //修改点名
+                    const text_data = Buffer.from(newJson.textContent[index], 'utf-8').toString('base64');
+                    element[elementType].CFCElement.Element.ElementText = text_data;
+                    //修改ID
+                    element[elementType].CFCElement.Element.ElementID = Number(newJson_idContent[i][0]);
+                    //修改XY坐标
+                    element[elementType].CFCElement.Element.PosX = Number(newJson_positionContent[index][0]);
+                    element[elementType].CFCElement.Element.PosY = Number(newJson_positionContent[index][1]);
+                    index += 1; // 索引加1
+                } else if (elementType === 'CFCLine') {
+                    // 对于连线类型元素，直接元素的输入输出ID
+                    element[elementType].InputPinID = Number(newJson_idContent[i][1]);
+                    element[elementType].OutputPinID = Number(newJson_idContent[i][2]);
+                } else {
+                    vscode.window.showErrorMessage('JSON 文件不能包含输入、输出、功能块、注释之外的其他类型元素');
+                }
+                poujson.PouInfo.pou_data.pou_data.CFCElementList[i] = element;
+            }
+            return  poujson;
+        } catch (error) {
+            const err = error as Error;
+            vscode.window.showErrorMessage(`json文件添加回路出错: ${err.message}`);
+            return  null;
+        }
+    }
     // 读取 Excel 文件内容并返回三维数组
     function readExcelFile(filePath: string): ExcelContent | null {
         try {
@@ -706,20 +1204,38 @@ export function activate(context: vscode.ExtensionContext) {
             return null;
         }
     }
-    // 将 Excel 内容转换为典型回路 XML 内容
+    // 将 Excel 内容转换为典型回路 XML 的结构数据
     function excelToXmlContent(excel: ExcelContent ): any {
         try {
             let newJson: XmlContent[][] = [];
-            console.log('恭成功调用数据分析');
+            //console.log('成功调用数据分析',excel.sheetName);
             for (let i = 0; i < excel.jsonData.length; i++) {
+                const ext = path.extname(excel.sheetName[i]).toLowerCase(); // 获取文件小写扩展名
+                // console.log('扩展名',ext);
                 let xml = 0;  //同一典型回路要创建几个POU
-                let index = 0;  //同一POU下有几个典型回路
+                let index = 0;  //同一POU下有几个典型回路i
                 // 获取当前工作表的前四行数据，前四行为常数
                 const sheetid = excel.jsonData[i][1];
                 const idlength = sheetid.length;                //获取ID长度
-                const maxid = Math.max(...sheetid.map(Number)); //取最大ID然后累加
-                const sheetposit = excel.jsonData[i][2];
+                let maxid_ele = 0;      //定义点名最大ID，xml和json使用
+                let maxid_pin = 0;      //定义引脚名最大ID，json使用
+                if (ext === '.xml') {
+                    maxid_ele = Math.max(...sheetid.map(Number)); //取最大ID然后累加
+                    // console.log('最大XMLID',maxid_ele);
+                } else if (ext === '.json') {
+                    const json_id = unflattenInputidxContent(sheetid); //将输入的数组转换为二维数组
+                    let id_ele = [];
+                    for (let j = 0; j < json_id.length; j++) {
+                        id_ele.push(json_id[j][0]);
+                    }
+                    const id_pin = json_id.flat();
+                    maxid_ele = Math.max(...id_ele.map(Number));
+                    maxid_pin = Math.max(...id_pin.map(Number));
+                    // console.log('最大JSONID',maxid_ele,maxid_pin);
+                    // maxid_ele = Math.max(...sheetid.map(Number)); //取最大ID然后累加
+                }
                 // 计算X,Y坐标的Y的最大值
+                const sheetposit = excel.jsonData[i][2];
                 let maxy = -Infinity;
                 if (sheetposit && sheetposit.length > 0) {
                     for (let n = 0; n < sheetposit.length; n++) {   // 遍历数组
@@ -728,7 +1244,11 @@ export function activate(context: vscode.ExtensionContext) {
                             const numberAfterComma = parseInt(parts[1], 10); // 转换为数字
                             // 比较并记录最大值
                             if (numberAfterComma > maxy) {
-                                maxy = numberAfterComma + 5;  //预留5个像素
+                                if (ext === '.xml') {
+                                    maxy = numberAfterComma + 5;  //Macs6预留5个像素
+                                } else if (ext === '.json') {
+                                    maxy = numberAfterComma + 50;  //Macs7预留50个像素
+                                }
                             }
                         } else {
                             console.warn(`sheetposit[${n}] is not a string`);
@@ -758,9 +1278,37 @@ export function activate(context: vscode.ExtensionContext) {
                             //添加回路类型
                             newJson[i][xml].typeContent.push(...excel.jsonData[i][0]);
                             //添加回路ID
-                            newJson[i][xml].idContent.push(...sheetid.map(item => item + (maxid*index)));
+                            if (ext === '.xml') {
+                                newJson[i][xml].idContent.push(...sheetid.map(item => item + (maxid_ele*index)));
+                            } else if (ext === '.json') {
+                                const json_id = unflattenInputidxContent(sheetid); //将输入的数组转换为二维数组
+                                for (let j = 0; j < json_id.length; j++) {
+                                    let id_str = '';
+                                    for (let k = 0; k < json_id[j].length; k++) {
+                                        if (k === 0) {
+                                            id_str += (String(Number(json_id[j][k]) + (maxid_ele*index)));
+                                        } else {
+                                            id_str += (','+ String(Number(json_id[j][k]) + (maxid_pin*index)));
+                                        }
+                                    }
+                                    newJson[i][xml].idContent.push(id_str);
+                                }
+                            }
                             //添加坐标
-                            newJson[i][xml].positionContent.push(...sheetposit.map(item => `${item.split(',')[0]},${parseInt(item.split(',')[1]) + (maxy*index)}`));
+                            if (ext === '.xml') {
+                                newJson[i][xml].positionContent.push(...sheetposit.map(item => `${item.split(',')[0]},${parseInt(item.split(',')[1]) + (maxy*index)}`));
+                            } else if (ext === '.json') {
+                                const json_xy = unflattenInputidxContent(sheetposit); //将输入的数组转换为二维数组
+                                for (let j = 0; j < json_xy.length; j++) {
+                                    let xy_str = '';
+                                    if (json_xy[j].length === 4) {
+                                        xy_str = json_xy[j][0] + ',' + (Number(json_xy[j][1]) + (maxy*index)) + ',' + json_xy[j][2] + ',' + json_xy[j][3] ;
+                                    } else {   
+                                        xy_str = json_xy[j][0] + ',' + (Number(json_xy[j][1]) + (maxy*index));
+                                    }
+                                    newJson[i][xml].positionContent.push(xy_str);
+                                }
+                            }
                             //添加输入引脚的Idx
                             //newJson[i][xml].inputidxContent.push([]);
                             for (let x = 0; x < sheetinputidx.length; x++) {
@@ -769,7 +1317,11 @@ export function activate(context: vscode.ExtensionContext) {
                                         newJson[i][xml].inputidxContent[x+(idlength*index)] = [];
                                     }
                                     if (sheetinputidx[x][y] !== '0' && sheetinputidx[x][y] !== '') {
-                                        newJson[i][xml].inputidxContent[x+(idlength*index)].push((parseInt(sheetinputidx[x][y]) + (maxid * index)).toString());
+                                        if (ext === '.xml') {
+                                            newJson[i][xml].inputidxContent[x+(idlength*index)].push((parseInt(sheetinputidx[x][y]) + (maxid_ele * index)).toString());
+                                        } else if (ext === '.json') {
+                                            newJson[i][xml].inputidxContent[x+(idlength*index)].push((parseInt(sheetinputidx[x][y]) + (maxid_pin * index)).toString());
+                                        }
                                     } else {
                                         if (sheetinputidx[x][y] === '0') {
                                             newJson[i][xml].inputidxContent[x+(idlength*index)].push('0');
@@ -804,11 +1356,16 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
     // 将EXCEL输入框的输入id字符串转换为二维数组，用于典型回路
-    function unflattenInputidxContent(flattenedInputidxContent: string[]): string[][] {
-        if (!flattenedInputidxContent || flattenedInputidxContent.length === 0) {
-            return [];
+    function unflattenInputidxContent(flattenedInputidxContent: (string | null | undefined)[]): string[][] {
+        if (!Array.isArray(flattenedInputidxContent)) {
+            return []; // 防止非数组输入
         }
-        return flattenedInputidxContent.map(str => str.split(', ').map(item => item.trim()));
+        return flattenedInputidxContent.map((str) => {
+            if (typeof str !== 'string') {
+                return ['']; // 处理非字符串值
+            }
+            return str.split(',').map(item => item.trim());
+        });
     }
     // 定义生成 XML 文件的函数
     function generateXmlFile(filePath: string, json: any): void {
@@ -827,10 +1384,31 @@ export function activate(context: vscode.ExtensionContext) {
             // 将生成的 XML 字符串写入文件
             fs.writeFileSync(filePath, xmlOutput,'latin1');
             // 向用户显示一个消息框
-            vscode.window.showInformationMessage('XML 文件已成功生成！');
+            // vscode.window.showInformationMessage('XML 文件已成功生成！');
         } catch (error) {
             const err = error as Error; // 类型断言
             vscode.window.showErrorMessage(`生成 XML 文件时出错: ${err.message}`);
+        }
+    }
+    // 定义生成 json 文件的函数
+    function generateJsonFile(filePath: string, json: any): void {
+        
+        try {
+            //console.log('内容',JSON.stringify(json, null, 2));
+            //console.log('内容',json);
+            // 正确序列化外层 JSON 结构 
+            const outerJson = {
+                pou: JSON.stringify(json), // 直接序列化内层对象
+                title: "AT_IEC_POU_PRIVATE_JSON_FORMAT"
+            };
+            // 使用缩进参数（第三个参数为 2，表示 2 个空格缩进）
+            const dataString = JSON.stringify(outerJson, null, 2);
+            // console.log('内容已生成');
+            fs.writeFileSync(filePath, dataString, 'utf8');
+            // vscode.window.showInformationMessage('JSON 文件已成功生成！');
+        } catch (error) {
+            const err = error as Error; // 类型断言
+            vscode.window.showErrorMessage(`生成 JSON 文件时出错: ${err.message}`);
         }
     }
     // 将 Excel 内容转换为顺控ST 内容
