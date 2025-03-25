@@ -69,7 +69,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// 使用控制台输出诊断信息（console.log）和错误（console.error）
 	// 此行代码仅在扩展激活时执行一次
-	console.log('恭喜，您的扩展 "hollysys" 已经激活！');
+	// console.log('恭喜，您的扩展 "hollysys" 已经激活！');
 	// 命令已在 package.json 文件中定义
     // 注册指令hollysys，"新建hollysys"
 	const disposable1 = vscode.commands.registerCommand('hollysys.hollysys', () => {
