@@ -389,7 +389,8 @@ export function activate(context: vscode.ExtensionContext) {
         } 
     });
     // 注册指令hollysysHIM, "修改画面"
-    let disposable7 = vscode.commands.registerCommand('hollysys.hollysysHIM', () => {
+    let disposable7 = vscode.commands.registerCommand('hollysys.hollysysHMI', () => {
+        // const hmi = getTextFromHMI();
         vscode.window.showInformationMessage('已生成替换画面');
     });
     // 注册指令hollysysPOUExcel, "更新POU变量表"
@@ -667,18 +668,35 @@ export function activate(context: vscode.ExtensionContext) {
     //创建新画面修改excel文件
     function generateExcelFilesHIM(workspaceFolder: string): void {
         try {
-
-            // 生成 典型回路.xlsx 文件
-            const workbook2 = XLSX.utils.book_new();
-            const worksheetData2 = [
-                ['原画面点名', '修改画面点名']
-            ];
-            const worksheet2 = XLSX.utils.aoa_to_sheet(worksheetData2);
-            XLSX.utils.book_append_sheet(workbook2, worksheet2, 'Sheet1');
-    
-            const filePath2 = path.join(workspaceFolder, '画面修改.xlsx');
-            XLSX.writeFile(workbook2, filePath2);
-    
+            // 获取当前工作区路径POU替换输入下的文件夹
+            const folderPath = path.join(workspaceFolder, '画面修改输入');
+            const files = getFilesInDirectory(folderPath);
+            if (!files.length) {
+                vscode.window.showErrorMessage('没有找到画面修改输入文件夹下的文件');
+                return;
+            }
+            const workbook = XLSX.utils.book_new();  // 创建新的工作簿
+            for (const file of files) {
+                // 获取文件名,绝对路径
+                const folderPathHMI = path.join(folderPath, file);
+                const ext = path.extname(file).toLowerCase(); // 获取小写扩展名
+                let HmiContent : XmlContent | null= null; // 使用let并初始化;
+                if (ext === '.mgp7') {
+                    HmiContent = getTextFromHMI(folderPathHMI);
+                } else {
+                    throw new Error(`不支持的文件类型: ${ext}`);
+                }
+                const worksheetData = [
+                    ['原画面点名', '修改画面点名']
+                ];
+                const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);   // 将数据转换为工作表
+                // console.log(`文件夹下XML文件名: ${file}`);
+                XLSX.utils.book_append_sheet(workbook, worksheet, file);    // 将工作表添加到工作簿中
+        
+            
+            }
+            const filePath = path.join(workspaceFolder, '画面修改.xlsx');
+            XLSX.writeFile(workbook, filePath);
             // 向用户显示一个消息框
             vscode.window.showInformationMessage('画面修改EXCEL已成功创建！');
         } catch (error) {
@@ -871,6 +889,148 @@ export function activate(context: vscode.ExtensionContext) {
                     vscode.window.showErrorMessage('JSON 文件不能包含输入、输出、功能块、注释之外的其他类型元素');
                 }
             }
+            // console.log('类型',typeContent);
+            // console.log('ID',idContent);
+            // console.log('坐标',positionContent);
+            // console.log('名字',textContent);
+            // console.log('连接',inputidxContent);
+            return { typeContent, idContent, positionContent, textContent, inputidxContent };
+        } catch (error) {
+            const err = error as Error; // 类型断言
+            vscode.window.showErrorMessage(`读取 json 文件出错: ${err.message}`);
+            return null;
+        }
+    }
+    //读取 JSON 文件中的 <text> 标签内容
+    function getTextFromHMI(filePath: string): XmlContent  | null {
+        try {
+            // 1. 使用utf8编码读取文件
+            const rawData = fs.readFileSync(filePath, 'utf8');
+            // 2. 解析外层JSON结构
+            const HmiJson = JSON.parse(rawData);
+            // 3. 解析内部pou字段的JSON字符串
+            // const poujson = JSON.parse(outerJson.pou);
+            console.log('读取JSON',HmiJson);
+            // 检查 json.pou.cfc 是否存在  
+            // if (!poujson.PouInfo.pou_data || !poujson.PouInfo.pou_data.pou_data.CFCElementList ) {
+            //     vscode.window.showErrorMessage('JSON 文件结构不正确，缺少必要的标签');
+            //     return null;
+            // }
+            // // 统计 POU.XML文件中有多少个element对象
+            // const elementCount = poujson.PouInfo.pou_data.pou_data.CFCElementList.length;
+            // //console.log('长度',elementCount);
+            let typeContent: string[] = [];  // 初始化为空数组
+            let idContent: string[] = [];  // 初始化为空数组
+            let positionContent: string[] = [];  // 初始化为空数组
+            let textContent: string[] = [];  // 初始化为空数组
+            let inputidxContent: string[][] = [];  // 初始化为空数组
+            // 提取 <text> 标签的内容
+            // for (let i = 0; i < elementCount; i++) {
+            //     const element = poujson.PouInfo.pou_data.pou_data.CFCElementList[i]; // 获取一个新对象
+            //     const elementType = Object.keys(element)[0];        //获取对象的第一个键名
+            //     if (elementType === 'CFCInput') {
+            //         typeContent.push(elementType || '');  //获取对象的第一个键名
+            //         // 组合ID
+            //         const id_data = element[elementType].CFCElement?.Element?.ElementID + ',' + element[elementType].CFCOutputPin?.CFCPin?.PinID;
+            //         idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+            //         // 组合XY坐标
+            //         const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY +
+            //          ',' + (element[elementType].AnchorPosX - element[elementType].CFCElement?.Element?.PosX) +
+            //          ',' + (element[elementType].AnchorPosY - element[elementType].CFCElement?.Element?.PosY);
+            //         positionContent.push(position_data || '');
+            //         const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+            //         const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+            //         const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+            //         textContent.push(text_data || '');
+            //         inputidxContent.push([]);
+            //         //console.log('内容',JSON.stringify(element[elementType], null, 2));
+            //     } else if (elementType === 'CFCOutput') {
+            //         typeContent.push(elementType || '');  //获取对象的第一个键名
+            //         // 组合ID
+            //         const id_data = element[elementType].CFCElement?.Element?.ElementID + ',' + element[elementType].CFCInputPin?.CFCPin?.PinID;
+            //         idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+            //         // 组合XY坐标
+            //         const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY;
+            //         positionContent.push(position_data || '');
+            //         const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+            //         const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+            //         const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+            //         textContent.push(text_data || '');
+            //         inputidxContent.push([element[elementType].CFCInputPin?.RefPinID || '']);
+            //     } else if (elementType === 'CFCBox') {
+            //         typeContent.push(elementType || '');  //获取对象的第一个键名
+            //         // 组合ID
+            //         let id_box_in = '';             // 统计 CFCBox 中的输入引脚ID
+            //         let id_box_out = '';            // 统计 CFCBox 中的输出引脚ID
+            //         // 正确遍历 CFCOutputPinList 数组
+            //         if (element[elementType].CFCOutputPinList) {
+            //             for (const pinItem of element[elementType].CFCOutputPinList) {
+            //                 const pin = pinItem.CFCOutputPin; // 获取每个 CFCOutputPin 对象
+            //                 if (pin?.CFCPin?.PinID !== undefined) {
+            //                     id_box_out += pin.CFCPin.PinID + ',';
+            //                 }
+            //             }
+            //         }
+            //         // 同样修正 CFCInputPinList 的遍历（如果存在）
+            //         if (element[elementType].CFCInputPinList) {
+            //             for (const pinItem of element[elementType].CFCInputPinList) {
+            //                 const pin = pinItem.CFCInputPin;
+            //                 if (pin?.CFCPin?.PinID !== undefined) {
+            //                     id_box_in += pin.CFCPin.PinID + ',';
+            //                 }
+            //             }
+            //         }
+            //         id_box_out = id_box_out ? id_box_out.slice(0, -1) : '';
+            //         const id_data = element[elementType].CFCElement?.Element?.ElementID + ',' + id_box_in + id_box_out;
+            //         idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+            //         // 组合XY坐标
+            //         const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY +
+            //          ',' + (element[elementType].AnchorPosX - element[elementType].CFCElement?.Element?.PosX) +
+            //          ',' + (element[elementType].AnchorPosY - element[elementType].CFCElement?.Element?.PosY);
+            //         positionContent.push(position_data || '');
+            //         if (element[elementType].FBVarName) {
+            //             const text_data =element[elementType].FBVarName;
+            //             textContent.push(text_data || '');
+            //         } else {
+            //             const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+            //             const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+            //             const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+            //             textContent.push(text_data || '');
+            //         }
+            //         //console.log('内容',JSON.stringify(element[elementType].CFCInputPinList, null, 2));
+            //         inputidxContent.push([]);  // 确保 inputidxContent[i] 是一个数组
+            //         if (element[elementType].CFCInputPinList) {
+            //             for (const pinItem of element[elementType].CFCInputPinList) {
+            //                 const refPinID = pinItem.CFCInputPin?.RefPinID || 0;
+            //                 inputidxContent[inputidxContent.length - 1].push(refPinID);
+            //             }
+            //         }
+            //     } else if (elementType === 'CFCComment') {
+            //         typeContent.push(elementType || '');  //获取对象的第一个键名
+            //         // 组合ID
+            //         const id_data = element[elementType].CFCElement?.Element?.ElementID;
+            //         idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+            //         // 组合XY坐标
+            //         const position_data = element[elementType].CFCElement?.Element?.PosX + ',' + element[elementType].CFCElement?.Element?.PosY;
+            //         positionContent.push(position_data || '');
+            //         const base64Str = element[elementType].CFCElement?.Element?.ElementText;
+            //         const buffer = Buffer.from(base64Str, 'base64'); // 将 Base64 转为 Buffer
+            //         const text_data = buffer.toString(); // 转换为字符串（默认 UTF-8）
+            //         textContent.push(text_data || '');
+            //         inputidxContent.push([]);
+            //     } else if (elementType === 'CFCLine'){
+            //         typeContent.push(elementType || '');  //获取对象的第一个键名
+            //         // 组合ID
+            //         const id_data = '0' + ',' + element[elementType].InputPinID+ ',' + element[elementType].OutputPinID;
+            //         idContent.push(id_data || '');  // 使用 push 方法将字符串添加到数组中
+            //         // 组合XY坐标
+            //         // positionContent.push('');
+            //         // textContent.push('');
+            //         // inputidxContent.push([]);
+            //     } else {
+            //         vscode.window.showErrorMessage('JSON 文件不能包含输入、输出、功能块、注释之外的其他类型元素');
+            //     }
+            // }
             // console.log('类型',typeContent);
             // console.log('ID',idContent);
             // console.log('坐标',positionContent);

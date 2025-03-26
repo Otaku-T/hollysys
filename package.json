@@ -61,7 +61,7 @@
         "title": "生成回路"
       },
       {
-        "command": "hollysys.hollysysHIM",
+        "command": "hollysys.hollysysHMI",
         "title": "修改画面"
       },      
       {
@@ -116,7 +116,7 @@
           "group": "999_navigation"
         },
         {
-          "command": "hollysys.hollysysHIM",
+          "command": "hollysys.hollysysHMI",
           "when": "resourceFilename  == 画面修改.xlsx ",
           "group": "999_navigation"
         },
