@@ -405,25 +405,33 @@ export function activate(context: vscode.ExtensionContext) {
             // 获取当前工作区路径POU替换输入下的文件夹
             const folderPath = path.join(workspaceFolder, 'POU点名统计');
             const files = getFilesInDirectory(folderPath);
-            let index = 0;  // 索引
+            // let index = 0;  // 索引
             const workbook = XLSX.utils.book_new();  // 创建新的工作簿
             // 生成 点名统计.xlsx 文件
             const worksheetData = [       // 工作表表头
                 ['POU名', '点名']
             ];
             for (const file of files) {
+                const ext = path.extname(file).toLowerCase(); // 获取小写扩展名
                 // 获取文件名,绝对路径
-                const folderPathXML = path.join(folderPath, files[index]);
-                // 调用函数XML解析函数
-                const XmlContent = getTextFromXml(folderPathXML);
+                const folderPathXML = path.join(folderPath, file);
+                let XmlContent : XmlContent | null= null; // 使用let并初始化;
+                if (ext === '.xml') {
+                    // 调用函数XML解析函数
+                    XmlContent = getTextFromXml(folderPathXML);
+                } else if (ext === '.json') {
+                    // 调用函数JSON解析函数
+                    XmlContent = getTextFromJson(folderPathXML);
+                } else {
+                    throw new Error(`不支持的文件类型: ${ext}`);
+                }
                 // 获取XML文件中的点名数组内容
                 const textContent = XmlContent?.textContent || [];
-                
                 // 假设替换点名为空字符串
                 const newRows = textContent.map(originalName => [file, originalName]);
                 // 拼接数组
                 worksheetData.push(...newRows);
-                index++;         // 更新索引
+                // index++;         // 更新索引
             }
             
             const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);   // 将数据转换为工作表
@@ -505,7 +513,37 @@ export function activate(context: vscode.ExtensionContext) {
     });
     // 注册指令hollysysDATA, "数据分类"
     let disposable10 = vscode.commands.registerCommand('hollysys.hollysysDATA', () => {
-        vscode.window.showInformationMessage('已生成数据分类表格');
+        try {
+            // 获取当前工作区的根目录
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('没有打开的工作区');
+                return;
+            }
+            const folderPath = path.join(workspaceFolder, '数据库.xlsx');
+            const sheetname = ['AO','K-VIO-AO','AI','K-VIO-AI','DOV','K-VIO-DOV','DI','K-VIO-DI'];
+            // 同步读取文件内容
+            const data = fs.readFileSync(folderPath);  // 使用同步方法读取文件
+            // 解析 Excel 文件
+            const workbook = XLSX.read(data, { type: 'buffer' });
+            let workbookdata: string[][]  = [];
+            //获取工作表不同位号数据
+            for (let i = 0; i < sheetname.length; i++) {
+                // 获取工作表数据
+                const worksheet = workbook.Sheets[sheetname[i]];
+                // 将工作表数据转换为二维数组
+                //jsonData.push([]);
+                const sheetData: string[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+                // jsonData.push(sheetData);
+                //console.log(jsonData);    
+            }
+
+            //console.log('开始执行命令');
+            vscode.window.showInformationMessage('已生成数据分类表格');
+        } catch (error) {
+            const err = error as Error; // 类型断言
+            vscode.window.showErrorMessage(`数据分类出错: ${err.message}`);
+        }
     });
     // 注册指令hollysysPY, "生成调试PY文件"
     let disposable11 = vscode.commands.registerCommand('hollysys.hollysysPY', () => {
@@ -665,7 +703,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`创建新典型回路excel文件出错: ${err.message}`);
         }
     }
-    //创建新画面修改excel文件
+    //创建新画面修改excel文件   （思路不清晰、未完成）
     function generateExcelFilesHIM(workspaceFolder: string): void {
         try {
             // 获取当前工作区路径POU替换输入下的文件夹
@@ -676,6 +714,8 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
             const workbook = XLSX.utils.book_new();  // 创建新的工作簿
+            const workname = ['画面信息','文字','直线','组合'];
+            // const workname =
             for (const file of files) {
                 // 获取文件名,绝对路径
                 const folderPathHMI = path.join(folderPath, file);
@@ -692,7 +732,6 @@ export function activate(context: vscode.ExtensionContext) {
                 const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);   // 将数据转换为工作表
                 // console.log(`文件夹下XML文件名: ${file}`);
                 XLSX.utils.book_append_sheet(workbook, worksheet, file);    // 将工作表添加到工作簿中
-        
             
             }
             const filePath = path.join(workspaceFolder, '画面修改.xlsx');
@@ -758,7 +797,7 @@ export function activate(context: vscode.ExtensionContext) {
             return null;
         }
     }
-    //读取 JSON 文件中的 <text> 标签内容
+    //读取 JSON 文件中的 <text> 标签内容   
     function getTextFromJson(filePath: string): XmlContent  | null {
 
         try {
@@ -901,7 +940,7 @@ export function activate(context: vscode.ExtensionContext) {
             return null;
         }
     }
-    //读取 JSON 文件中的 <text> 标签内容
+    //读取 JSON 文件中的 <text> 标签内容    （思路不清晰、未完成）
     function getTextFromHMI(filePath: string): XmlContent  | null {
         try {
             // 1. 使用utf8编码读取文件

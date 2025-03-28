@@ -21,7 +21,7 @@ Hollysys 是一个适用于 Visual Studio Code 的扩展，旨在为 Structured 
 1. 打开 Visual Studio Code。
 2. 进入扩展视图（快捷键 `Ctrl+Shift+X` 或 `Cmd+Shift+X`）。
 3. 在搜索栏中输入 `Hollysys`。
-4. 点击安装按钮进行安装。d
+4. 点击安装按钮进行安装。
 
 ## 使用方法
 ### 新建 Hollysys 工程

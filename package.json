@@ -102,7 +102,7 @@
         },
         {
           "command": "hollysys.hollysysPOUExcel",
-          "when": "resourceLangId == xml",
+          "when": "resourceLangId == xml || resourceLangId == json",
           "group": "999_navigation"
         },
         {
