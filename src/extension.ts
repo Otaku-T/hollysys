@@ -526,19 +526,55 @@ export function activate(context: vscode.ExtensionContext) {
             const data = fs.readFileSync(folderPath);  // 使用同步方法读取文件
             // 解析 Excel 文件
             const workbook = XLSX.read(data, { type: 'buffer' });
-            let workbookdata: string[][]  = [];
+            let workbookdata: string[][][]  = [];
             //获取工作表不同位号数据
             for (let i = 0; i < sheetname.length; i++) {
                 // 获取工作表数据
                 const worksheet = workbook.Sheets[sheetname[i]];
                 // 将工作表数据转换为二维数组
                 //jsonData.push([]);
-                const sheetData: string[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+                let sheetData: string[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+                sheetData = sheetData.map(row => row.slice(0, 4));
+                workbookdata.push(sheetData);
                 // jsonData.push(sheetData);
-                //console.log(jsonData);    
+                // console.log(sheetname[i]);    
             }
-
-            //console.log('开始执行命令');
+            //整理数据
+            let boxdata: string[][] = [["分组编号","点名","分类顺序:","AO","AI","DOV","DI"]];
+            for (let i = 0; i < workbookdata.length; i++) {
+                for (let j = 2; j < workbookdata[i].length; j++) {
+                    if (workbookdata[i][j][0].includes("BY") || workbookdata[i][j][0].includes("PN")) {
+                        continue;
+                    } else {
+                        // 去除字母和下划线加上站号作为分组编号
+                        const rawString = workbookdata[i][j][3] + workbookdata[i][j][0].replace(/[a-zA-Z_]/g, '') + workbookdata[i][j][0].replace(/[0-9_]/g, '')[0];
+                        // 提取已有的分组编号   
+                        const boxNumber = boxdata.map(row => row[0]);
+                        // 获取索引号
+                        const index = boxNumber.indexOf(rawString);
+                        
+                        if (index !== -1 ){
+                            // 判断点是否为同一类型
+                            // const boxtype = boxdata[index][1].replace(/[0-9_]/g, '')[0] === workbookdata[i][j][0].replace(/[0-9_]/g, '')[0];
+                            // if (boxtype){
+                            //     boxdata[index].push(workbookdata[i][j][0]);
+                            // } else {
+                            //     boxdata.push([rawString, workbookdata[i][j][0]]);
+                            // }
+                            boxdata[index].push(workbookdata[i][j][0]);
+                        } else {
+                            boxdata.push([rawString, workbookdata[i][j][0]]);
+                        }
+                    }
+                }
+            }
+            // 写入 Excel 文件
+            const outputWorkbook = XLSX.utils.book_new();
+            const worksheet = XLSX.utils.aoa_to_sheet(boxdata);
+            XLSX.utils.book_append_sheet(outputWorkbook, worksheet, '分类数据');
+            const outputFilePath = path.join(workspaceFolder, '数据分类.xlsx');
+            XLSX.writeFile(outputWorkbook, outputFilePath);
+            // console.log(boxdata);
             vscode.window.showInformationMessage('已生成数据分类表格');
         } catch (error) {
             const err = error as Error; // 类型断言
