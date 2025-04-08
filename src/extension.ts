@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
             const folderPath7 = path.join(workspaceFolder, 'POU点名统计');
             const folderPath8 = path.join(workspaceFolder, 'ST顺控');
             const folderPath9 = path.join(workspaceFolder, 'ST替换输出');
-            const folderPath10 = path.join(workspaceFolder, 'python仿真 ');
+            const folderPath10 = path.join(workspaceFolder, 'python仿真');
             const folderPath11 = path.join(workspaceFolder, '备份');
             // 创建文件夹
             fs.mkdirSync(folderPath1, { recursive: true });
@@ -554,13 +554,6 @@ export function activate(context: vscode.ExtensionContext) {
                         const index = boxNumber.indexOf(rawString);
                         
                         if (index !== -1 ){
-                            // 判断点是否为同一类型
-                            // const boxtype = boxdata[index][1].replace(/[0-9_]/g, '')[0] === workbookdata[i][j][0].replace(/[0-9_]/g, '')[0];
-                            // if (boxtype){
-                            //     boxdata[index].push(workbookdata[i][j][0]);
-                            // } else {
-                            //     boxdata.push([rawString, workbookdata[i][j][0]]);
-                            // }
                             boxdata[index].push(workbookdata[i][j][0]);
                         } else {
                             boxdata.push([rawString, workbookdata[i][j][0]]);

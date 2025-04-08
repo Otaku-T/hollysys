@@ -68,7 +68,7 @@ Hollysys 是一个适用于 Visual Studio Code 的扩展，旨在为 Structured 
 ### 数据分类
 1. 打开命令面板（快捷键 `Ctrl+Shift+P` 或 `Cmd+Shift+P`）。
 2. 输入 `数据分类` 并选择。
-3. 目前该功能尚未实现，后续版本将提供具体功能。
+3. 需要在 `数据库.xlsx` 文件上右键触发，生成 `数据分类.xlsx` 文件。
 
 ### 转换 Python
 1. 打开命令面板（快捷键 `Ctrl+Shift+P` 或 `Cmd+Shift+P`）。

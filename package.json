@@ -3,7 +3,7 @@
   "displayName": "hollysys",
   "description": "这是一个hollysys组态软件MACS的插件",
   "version": "1.4.0",
-  "publisher": "xchsr",
+  "publisher": "红烧肉",
   "license": "MIT",
   "engines": {
     "vscode": "^1.95.0"
